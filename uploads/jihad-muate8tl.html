@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HTML to APK Builder</title>
+<style>
+:root{--bg:#000;--surface:#1c1b20;--surface2:#252429;--line:#49474f;--text:#f2f0f6;--muted:#a9a6b3;--accent:#38bdf8;--on-accent:#03243a;--ok:#4ade80;--warn:#fbbf24;--bad:#fca5a5;color-scheme:dark;box-sizing:border-box}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI",Roboto,system-ui,sans-serif;font-size:16px;line-height:1.5}
+.app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0) 20px calc(24px + env(safe-area-inset-bottom,0))}
+.screen{display:none;flex:1;flex-direction:column}.screen.on{display:flex}
+h1{font-size:28px;font-weight:700;margin:26px 0 20px}
+.topbar{display:flex;align-items:center;gap:14px;margin:22px 0 18px}.topbar h1{margin:0;font-size:26px;flex:1}
+.iconbtn{background:none;border:0;color:var(--text);font-size:26px;cursor:pointer;padding:6px 10px;border-radius:50%;line-height:1}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;border:0;border-radius:28px;background:var(--accent);color:var(--on-accent);font:inherit;font-size:18px;font-weight:700;cursor:pointer;text-decoration:none}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.outline{background:transparent;color:var(--accent);border:1.5px solid var(--line);min-height:52px;border-radius:26px;font-size:17px;font-weight:600}
+.btn:focus-visible,.iconbtn:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--muted);text-align:center}
+.card{background:var(--surface);border-radius:26px;padding:24px 22px;margin:auto 0}.card h2{margin:0 0 18px;font-size:22px}
+.opt{display:flex;gap:16px;align-items:center;width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:8px 0}
+.opt b{display:block;font-size:19px}.opt span{color:var(--muted);font-size:15px}
+label.f{display:block;color:var(--muted);font-size:15px;margin:0 0 8px}
+input[type=text],input[type=password]{width:100%;background:transparent;border:1.5px solid var(--line);border-radius:14px;color:var(--text);font:inherit;font-size:18px;padding:16px}
+.field{margin-bottom:24px}
+.iconrow{display:flex;gap:16px;align-items:center}
+.iconbox{width:96px;height:96px;flex:none;border-radius:26px;background:var(--surface2);display:grid;place-items:center;overflow:hidden}
+.iconbox img{width:100%;height:100%;object-fit:cover}
+.fname{color:var(--muted);font-size:14px;margin-top:8px;word-break:break-all}.fname.ok{color:var(--ok)}
+.spacer{flex:1;min-height:16px}
+.err{color:var(--bad);font-size:15px;margin:0 0 12px;min-height:22px}
+input[type=file]{display:none}
+.help{color:var(--muted);font-size:15px;margin:0 0 18px}
+.help ol{padding-left:20px;margin:8px 0}.help li{margin-bottom:6px}.help a{color:var(--accent)}
+/* build screen */
+.center{align-items:center;text-align:center}
+.pct{width:min(74%,300px);margin:26px auto 14px;background:var(--surface);border-radius:34px;padding:24px 20px;display:flex;align-items:center;justify-content:center;gap:22px}
+.ring{width:34px;height:34px;border-radius:50%;border:5px solid var(--surface2);border-top-color:#2dd4bf;animation:spin 1s linear infinite}
+.ring.stop{animation:none;border-color:#2dd4bf}.ring.fail{animation:none;border-color:#f87171}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.ring{animation-duration:3s}}
+.pct b{font-size:38px;font-weight:700;font-variant-numeric:tabular-nums}
+.status{font-size:20px;font-weight:700;margin:6px 0 16px}
+.log{width:100%;flex:1;min-height:260px;max-height:52vh;overflow-y:auto;background:#0b0b10;border-radius:22px;padding:16px;text-align:left;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;line-height:1.55;color:#b9b6c4;word-break:break-word}
+.log div{margin-bottom:3px}.log .ok{color:var(--ok)}.log .bad{color:var(--bad)}.log .warn{color:var(--warn)}
+.done-icon{width:112px;height:112px;border-radius:30px;overflow:hidden;background:var(--surface2);display:grid;place-items:center;margin:20px auto 12px}
+.done-icon img{width:100%;height:100%;object-fit:cover}
+.note{color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- Home -->
+<section class="screen on" id="s-home">
+  <div class="topbar"><h1>My Projects</h1><button class="iconbtn" id="gear" aria-label="GitHub settings">⚙</button></div>
+  <button class="btn" id="newBtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>New Project</button>
+  <div class="empty"><svg width="110" height="110" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" opacity=".7"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg><div>No projects yet.<br>Tap New Project to start.</div></div>
+</section>
+
+<!-- Choose -->
+<section class="screen" id="s-choose">
+  <div class="topbar"><button class="iconbtn" data-go="s-home" aria-label="Back">←</button><h1>My Projects</h1></div>
+  <div class="card"><h2>How do you want to build?</h2>
+    <button class="opt" id="quickBtn"><svg width="34" height="34" viewBox="0 0 24 24" fill="#38bdf8"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg><div><b>Quick Build</b><span>Just name, content and icon. We handle the rest.</span></div></button>
+  </div>
+</section>
+
+<!-- Form -->
+<section class="screen" id="s-form">
+  <div class="topbar"><button class="iconbtn" data-go="s-choose" aria-label="Back">←</button><h1>Quick Build</h1></div>
+  <div class="field"><label class="f" for="appName">My app name</label><input type="text" id="appName" placeholder="My Awesome App" autocomplete="off"></div>
+  <div class="field"><label class="f">HTML file</label>
+    <button class="btn outline" id="pickHtml" type="button"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 2h8l6 6v14H6zM14 3.5V9h5.5z"/></svg>Select HTML file</button>
+    <div class="fname" id="htmlName">No file selected</div>
+    <input type="file" id="htmlFile" accept=".html,.htm,text/html">
+  </div>
+  <div class="field"><label class="f">App icon (image)</label>
+    <div class="iconrow"><div class="iconbox" id="iconBox"><svg width="44" height="44" viewBox="0 0 24 24" fill="#a9a6b3"><path d="M4 4h16v16H4zm3 12h10l-3.2-4.3-2.3 3-1.5-2z"/></svg></div>
+    <button class="btn outline" id="pickIcon" type="button">Select image</button></div>
+    <input type="file" id="iconFile" accept="image/*">
+  </div>
+  <div class="field"><label class="f" for="pkgName">Package name</label>
+    <input type="text" id="pkgName" placeholder="com.mycompany.mygame" autocomplete="off" autocapitalize="none" spellcheck="false">
+    <div class="fname">Your app's unique ID, like com.yourname.gamename. Lowercase only. Leave blank and we will make one.</div>
+  </div>
+  <div class="field"><label class="f" for="verName">Version</label>
+    <input type="text" id="verName" value="1.0" placeholder="1.0" autocomplete="off" inputmode="decimal">
+    <div class="fname">Which version to build, like 1.0 or 1.2.3. Use a higher number than before to update an installed app.</div>
+  </div>
+  <div class="spacer"></div>
+  <p class="err" id="err" role="alert"></p>
+  <button class="btn" id="buildBtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M22 19.6 13.4 11a5 5 0 0 0-6.5-6.4l3 3-2.3 2.3-3-3A5 5 0 0 0 11 12.4L19.6 21z"/></svg>Build Now</button>
+</section>
+
+<!-- GitHub setup -->
+<section class="screen" id="s-setup">
+  <div class="topbar"><button class="iconbtn" data-go="s-home" aria-label="Back">←</button><h1>Connect GitHub</h1></div>
+  <div class="help">The APK is built for free on GitHub's servers. Do this one time only. After you paste the token, your build starts by itself and later builds need no questions.
+    <ol>
+      <li>Create a free account at <a href="https://github.com/signup" target="_blank" rel="noopener">github.com</a>.</li>
+      <li><a href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=APK%20Builder" target="_blank" rel="noopener">Tap here to create a token</a>. Keep <b>repo</b> and <b>workflow</b> ticked, choose an expiry, and tap Generate token.</li>
+      <li>Copy the token and paste it below.</li>
+    </ol>
+    The token stays on this phone and is only sent to api.github.com. Delete it on GitHub when you no longer need it.
+  </div>
+  <div class="field"><label class="f" for="token">GitHub token</label><input type="password" id="token" autocomplete="off" placeholder="ghp_..."></div>
+  <details class="field"><summary class="f" style="cursor:pointer">Advanced</summary>
+    <label class="f" for="repo" style="margin-top:10px">Repository name (created for you if missing)</label><input type="text" id="repo" value="html-apk-builds" autocomplete="off">
+  </details>
+  <p class="err" id="setupErr" role="alert"></p>
+  <button class="btn" id="saveSetup">Save and build</button>
+</section>
+
+<!-- Building -->
+<section class="screen center" id="s-build">
+  <div class="topbar" style="width:100%"><button class="iconbtn" id="cancelBtn" aria-label="Stop watching">←</button><h1>Building APK</h1></div>
+  <div class="pct"><div class="ring" id="ring"></div><b id="pct">0%</b></div>
+  <div class="status" id="status">Starting…</div>
+  <div class="log" id="log" aria-live="polite"></div>
+</section>
+
+<!-- Done -->
+<section class="screen center" id="s-done">
+  <div class="done-icon" id="doneIcon"></div>
+  <h1 style="margin:0 0 6px" id="doneName"></h1>
+  <div class="note" style="margin-bottom:22px">100% — your Android app is ready.</div>
+  <a class="btn" id="dlBtn" href="#" rel="noopener"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 21h16"/></svg>Download APK</a>
+  <p class="note" style="margin:14px 0 22px">After it downloads, open the file and allow installs from your browser if Android asks.</p>
+  <button class="btn outline" id="copyBtn" style="margin-bottom:12px">Copy download link</button>
+  <button class="btn outline" id="againBtn">Build another</button>
+</section>
+</div>
+
+<script type="text/plain" id="wf">name: Build APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "App name"
+        required: true
+        default: "My Game"
+      html_file:
+        description: "HTML file in this repo (e.g. index.html)"
+        required: true
+        default: "index.html"
+      icon_file:
+        description: "Icon image in this repo (e.g. icon.png). Leave blank for the default icon"
+        required: false
+        default: ""
+      package_name:
+        description: "Package name (e.g. com.mycompany.mygame). Leave blank to generate one"
+        required: false
+        default: ""
+      version_name:
+        description: "Version (e.g. 1.0 or 1.2.3)"
+        required: true
+        default: "1.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      APP_NAME: ${{ inputs.app_name }}
+      HTML_FILE: ${{ inputs.html_file }}
+      ICON_FILE: ${{ inputs.icon_file }}
+      PACKAGE_NAME: ${{ inputs.package_name }}
+      VERSION_NAME: ${{ inputs.version_name }}
+    steps:
+      - name: Get the repo files
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Check the files
+        run: |
+          if [ ! -f "$HTML_FILE" ]; then
+            echo "::error::HTML file not found: $HTML_FILE. Check the file name and upload it to the repo."
+            exit 1
+          fi
+          if [ -n "$ICON_FILE" ] && [ ! -f "$ICON_FILE" ]; then
+            echo "::error::Icon file not found: $ICON_FILE. Check the file name and upload it to the repo."
+            exit 1
+          fi
+          if ! echo "$VERSION_NAME" | grep -Eq '^[0-9]+(\.[0-9]+){0,2}$'; then
+            echo "::error::Version must look like 1.0 or 1.2.3 (numbers and dots only)."
+            exit 1
+          fi
+          if [ -n "$PACKAGE_NAME" ] && ! echo "$PACKAGE_NAME" | grep -Eq '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'; then
+            echo "::error::Package name must look like com.mycompany.mygame (lowercase letters, numbers, underscores; at least two parts separated by dots)."
+            exit 1
+          fi
+
+      - name: Create the Android project
+        run: |
+          mkdir -p app/www
+          cp "$HTML_FILE" app/www/index.html
+          cd app
+          if [ -n "$PACKAGE_NAME" ]; then
+            export APP_ID="$PACKAGE_NAME"
+          else
+            export APP_ID="com.htmlapp.app$(echo "$APP_NAME" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9')"
+          fi
+          echo "Package name: $APP_ID"
+          cat > package.json <<'EOF'
+          {
+            "name": "htmlapp",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/core": "^6.2.0",
+              "@capacitor/android": "^6.2.0"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "^6.2.0"
+            }
+          }
+          EOF
+          node -e "require('fs').writeFileSync('capacitor.config.json', JSON.stringify({appId: process.env.APP_ID, appName: process.env.APP_NAME, webDir: 'www'}, null, 2))"
+          npm install
+          npx cap add android
+          CODE=$(echo "$VERSION_NAME" | awk -F. '{print ($1+0)*10000+($2+0)*100+($3+0)}')
+          if [ "$CODE" -lt 1 ]; then CODE=1; fi
+          sed -i "s/versionCode [0-9]*/versionCode $CODE/; s/versionName \".*\"/versionName \"$VERSION_NAME\"/" android/app/build.gradle
+          grep -E "versionCode|versionName|applicationId" android/app/build.gradle
+          npx cap sync android
+
+      - name: Apply the icon
+        if: ${{ inputs.icon_file != '' }}
+        run: |
+          RES=app/android/app/src/main/res
+          CONVERT=$(command -v magick || command -v convert)
+          rm -rf "$RES/mipmap-anydpi-v26"
+          for pair in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            d=${pair%%:*}
+            s=${pair##*:}
+            for n in ic_launcher ic_launcher_round ic_launcher_foreground; do
+              "$CONVERT" "$ICON_FILE" -resize "${s}x${s}^" -gravity center -extent "${s}x${s}" "$RES/mipmap-$d/$n.png"
+            done
+          done
+
+      - name: Build the APK
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Name the APK
+        run: cp app/android/app/build/outputs/apk/debug/app-debug.apk "app-${{ github.run_number }}.apk"
+
+      - name: Publish the APK for download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "${{ inputs.app_name }} v${{ inputs.version_name }} (build ${{ github.run_number }})"
+          body: "Download the .apk file below and install it on your Android phone."
+          files: app-${{ github.run_number }}.apk</script>
+
+<script>
+const $=id=>document.getElementById(id);
+// Optional: paste your GitHub token between the quotes to skip the token screen completely.
+const PRESET_TOKEN='';
+const S={token:PRESET_TOKEN,repo:'html-apk-builds'};
+try{S.token=localStorage.getItem('apk_token')||PRESET_TOKEN;S.repo=localStorage.getItem('apk_repo')||S.repo}catch(e){}
+let htmlText='',iconB64='',iconData='',cancelled=false,pendingBuild=null,lastLink='';
+
+function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===id));window.scrollTo(0,0)}
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+$('newBtn').onclick=()=>go('s-choose');$('quickBtn').onclick=()=>go('s-form');
+$('gear').onclick=()=>{pendingBuild=null;$('token').value=S.token;$('repo').value=S.repo;$('setupErr').textContent='';go('s-setup')};
+$('saveSetup').onclick=async()=>{
+  const t=$('token').value.trim(),r=$('repo').value.trim();
+  $('setupErr').textContent='';
+  if(!t){$('setupErr').textContent='Paste your GitHub token first. It starts with ghp_ or github_pat_.';return}
+  if(!/^[A-Za-z0-9._-]+$/.test(r)){$('setupErr').textContent='Repository name can only use letters, numbers, dot, dash and underscore.';return}
+  $('saveSetup').disabled=true;$('saveSetup').textContent='Checking token…';
+  try{
+    const res=await fetch('https://api.github.com/user',{headers:{Authorization:'Bearer '+t,Accept:'application/vnd.github+json'}});
+    if(res.status===401){$('setupErr').textContent='This is not a valid GitHub token. Create one using the blue link above and copy the whole token.';return}
+    if(!res.ok){$('setupErr').textContent='GitHub said: HTTP '+res.status+'. Try again.';return}
+    const scopes=res.headers.get('x-oauth-scopes');
+    if(scopes!==null&&scopes!==''&&!(/\brepo\b/.test(scopes)&&/\bworkflow\b/.test(scopes))){$('setupErr').textContent='This token is missing permissions. Create a new one with both "repo" and "workflow" ticked.';return}
+  }catch(e){$('setupErr').textContent='Could not reach GitHub. Check your internet connection.';return}
+  finally{$('saveSetup').disabled=false;$('saveSetup').textContent='Save and build'}
+  S.token=t;S.repo=r;try{localStorage.setItem('apk_token',t);localStorage.setItem('apk_repo',r)}catch(e){}
+  if(pendingBuild){const a=pendingBuild;pendingBuild=null;runBuild(a.name,a.pkg,a.ver)}else go('s-home');
+};
+$('pickHtml').onclick=()=>$('htmlFile').click();$('pickIcon').onclick=()=>$('iconFile').click();
+$('htmlFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;htmlText=await f.text();$('htmlName').textContent=f.name;$('htmlName').classList.add('ok');if(!$('appName').value.trim())$('appName').value=f.name.replace(/\.[^.]+$/,'')};
+$('iconFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const img=new Image(),url=URL.createObjectURL(f);
+  img.onload=()=>{const c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');const s=Math.min(img.width,img.height);
+    x.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,512,512);iconData=c.toDataURL('image/png');iconB64=iconData.split(',')[1];
+    $('iconBox').innerHTML='<img alt="Icon" src="'+iconData+'">';URL.revokeObjectURL(url)};img.src=url};
+
+/* ---------- helpers ---------- */
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+function b64text(str){const b=new TextEncoder().encode(str);let bin='';for(let i=0;i<b.length;i+=0x8000)bin+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(bin)}
+function b64decode(s){const bin=atob(s.replace(/\s/g,''));const b=Uint8Array.from(bin,c=>c.charCodeAt(0));return new TextDecoder().decode(b)}
+async function gh(path,opts={}){
+  return fetch('https://api.github.com'+path,{...opts,headers:{Authorization:'Bearer '+S.token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(opts.body?{'Content-Type':'application/json'}:{}),...(opts.headers||{})}});
+}
+async function errText(r){try{const j=await r.json();return j.message||('HTTP '+r.status)}catch(e){return 'HTTP '+r.status}}
+const logEl=$('log');
+function log(msg,cls){const d=document.createElement('div');if(cls)d.className=cls;const t=new Date().toTimeString().slice(0,8);d.textContent=t+'  '+msg;logEl.appendChild(d);logEl.scrollTop=logEl.scrollHeight}
+function setPct(p,msg){$('pct').textContent=Math.round(p)+'%';if(msg)$('status').textContent=msg}
+class Stop extends Error{}
+function check(){if(cancelled)throw new Stop('stopped')}
+
+/* ---------- build ---------- */
+$('buildBtn').onclick=()=>{
+  const name=$('appName').value.trim();$('err').textContent='';
+  if(!name){$('err').textContent='Enter an app name.';return}
+  if(/["'<>&\\]/.test(name)){$('err').textContent='App name cannot contain quotes or these symbols: < > & \\';return}
+  if(!htmlText){$('err').textContent='Select an HTML file.';return}
+  const pkg=$('pkgName').value.trim(),ver=$('verName').value.trim();
+  if(pkg&&!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test(pkg)){$('err').textContent='Package name must look like com.mycompany.mygame (lowercase, at least two parts).';return}
+  if(!/^[0-9]+(\.[0-9]+){0,2}$/.test(ver)){$('err').textContent='Version must look like 1.0 or 1.2.3.';return}
+  if(!S.token){pendingBuild={name,pkg,ver};$('token').value='';$('repo').value=S.repo;$('setupErr').textContent='';go('s-setup');return}
+  runBuild(name,pkg,ver);
+};
+$('cancelBtn').onclick=()=>{cancelled=true;go('s-form')};
+
+async function runBuild(name,pkg,ver){
+  cancelled=false;logEl.innerHTML='';$('ring').className='ring';setPct(0,'Starting…');go('s-build');
+  const id=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30)+'-'+Date.now().toString(36);
+  try{
+    log('→ Checking GitHub token…');
+    let r=await gh('/user');if(r.status===401)throw new Error('GitHub rejected the token. Open ⚙ settings and paste a new one.');
+    if(!r.ok)throw new Error(await errText(r));
+    const login=(await r.json()).login;log('• Signed in as '+login);setPct(3,'Checking repository…');check();
+
+    r=await gh('/repos/'+login+'/'+S.repo);
+    if(r.status===404){
+      log('→ Creating repository '+S.repo+'…');
+      r=await gh('/user/repos',{method:'POST',body:JSON.stringify({name:S.repo,private:false,auto_init:true,description:'APK builds'})});
+      if(!r.ok)throw new Error('Could not create repository: '+await errText(r));
+      await wait(3000);r=await gh('/repos/'+login+'/'+S.repo);
+    }
+    if(!r.ok)throw new Error(await errText(r));
+    const repo=await r.json();const branch=repo.default_branch;const base='/repos/'+login+'/'+S.repo;
+    if(repo.private)log('! Repository is private. Downloads may need you to be signed in.','warn');
+    log('✓ [SUCCESS] Repository ready','ok');setPct(8,'Preparing builder…');check();
+
+    // workflow file
+    const wfPath='.github/workflows/build-apk.yml',wf=document.getElementById('wf').textContent.trim()+'\n';
+    r=await gh(base+'/contents/'+wfPath+'?ref='+branch);let sha;let same=false;
+    if(r.ok){const j=await r.json();sha=j.sha;try{same=b64decode(j.content)===wf}catch(e){}}
+    if(!same){
+      log('→ Installing build workflow…');
+      r=await gh(base+'/contents/'+wfPath,{method:'PUT',body:JSON.stringify({message:'Add APK build workflow',content:b64text(wf),branch,...(sha?{sha}:{})})});
+      if(!r.ok)throw new Error('Could not add workflow ('+await errText(r)+'). Make sure the token has the "workflow" permission.');
+    }
+    log('✓ [SUCCESS] Build workflow ready','ok');setPct(11,'Uploading your app…');check();
+
+    // upload html + icon
+    const htmlPath='uploads/'+id+'.html';
+    log('→ Uploading HTML ('+Math.round(htmlText.length/1024)+' KB)…');
+    r=await gh(base+'/contents/'+htmlPath,{method:'PUT',body:JSON.stringify({message:'Add '+name,content:b64text(htmlText),branch})});
+    if(!r.ok)throw new Error('Upload failed: '+await errText(r));
+    let iconPath='';
+    if(iconB64){iconPath='uploads/'+id+'.png';log('→ Uploading icon…');
+      r=await gh(base+'/contents/'+iconPath,{method:'PUT',body:JSON.stringify({message:'Add icon for '+name,content:iconB64,branch})});
+      if(!r.ok)throw new Error('Icon upload failed: '+await errText(r))}
+    log('✓ [SUCCESS] Files uploaded','ok');setPct(14,'Starting build…');check();
+
+    // remember latest run id, then dispatch
+    r=await gh(base+'/actions/runs?event=workflow_dispatch&per_page=1');
+    let maxId=0;if(r.ok){const j=await r.json();maxId=(j.workflow_runs[0]||{}).id||0}
+    log('→ Starting the build on GitHub…');
+    let started=false,lastErr='';
+    for(let i=0;i<15&&!started;i++){
+      check();
+      r=await gh(base+'/actions/workflows/build-apk.yml/dispatches',{method:'POST',body:JSON.stringify({ref:branch,inputs:{app_name:name,html_file:htmlPath,icon_file:iconPath,package_name:pkg,version_name:ver}})});
+      if(r.status===204)started=true;else{lastErr=await errText(r);await wait(4000)}
+    }
+    if(!started)throw new Error('Could not start the build: '+lastErr+'. Check that GitHub Actions is enabled for the repository.');
+    log('✓ [SUCCESS] Build started','ok');
+
+    // find the run
+    let run=null;
+    for(let i=0;i<40&&!run;i++){
+      check();await wait(3000);
+      r=await gh(base+'/actions/runs?event=workflow_dispatch&per_page=5');
+      if(r.ok){const j=await r.json();run=(j.workflow_runs||[]).find(x=>x.id>maxId)||null}
+    }
+    if(!run)throw new Error('The build did not show up on GitHub. Try again in a minute.');
+    log('• Build #'+run.run_number+' queued');
+
+    // poll steps
+    const seen={};let pct=14,stepStart=Date.now(),curStep='',t0=Date.now();
+    while(true){
+      check();await wait(4000);
+      if(Date.now()-t0>30*60*1000)throw new Error('Build is taking too long. Check the Actions tab on GitHub.');
+      let jr,rr;
+      try{rr=await gh(base+'/actions/runs/'+run.id);jr=await gh(base+'/actions/runs/'+run.id+'/jobs')}catch(e){continue}
+      if(!rr.ok||!jr.ok)continue;
+      run=await rr.json();const jobs=(await jr.json()).jobs||[];const steps=(jobs[0]&&jobs[0].steps)||[];
+      const total=steps.length||1;let done=0,running='';
+      for(const s of steps){
+        const key=s.number+':'+s.status+':'+(s.conclusion||'');
+        if(seen[s.number]!==key){
+          seen[s.number]=key;
+          if(s.status==='in_progress')log('→ '+s.name+'…');
+          else if(s.status==='completed'){if(s.conclusion==='success')log('✓ [SUCCESS] '+s.name,'ok');else if(s.conclusion==='skipped')log('• Skipped: '+s.name);else log('✗ [FAILED] '+s.name,'bad')}
+        }
+        if(s.status==='completed')done++;else if(s.status==='in_progress')running=s.name;
+      }
+      if(running!==curStep){curStep=running;stepStart=Date.now()}
+      // percent: completed steps share 14..96, running step creeps forward slowly
+      const share=82/total,creep=Math.min(0.85,(Date.now()-stepStart)/150000)*share;
+      const target=14+done*share+(running?creep:0);
+      pct=Math.max(pct,Math.min(96,target));
+      setPct(pct,running?running+'…':'Working…');
+      if(run.status==='completed')break;
+    }
+    if(run.conclusion!=='success'){
+      $('ring').className='ring fail';
+      log('✗ [FAILED] Build did not finish. Open this page for details: '+run.html_url,'bad');
+      $('status').textContent='Build failed';
+      return;
+    }
+
+    // release asset
+    setPct(97,'Getting your APK…');log('→ Fetching download link…');
+    let apk=null;
+    for(let i=0;i<20&&!apk;i++){
+      check();r=await gh(base+'/releases/tags/build-'+run.run_number);
+      if(r.ok){const j=await r.json();apk=(j.assets||[]).find(a=>/\.apk$/.test(a.name))||null}
+      if(!apk)await wait(3000);
+    }
+    if(!apk)throw new Error('Build finished but the APK file was not found in Releases.');
+    log('✓ [SUCCESS] APK ready ('+Math.round(apk.size/1024/1024*10)/10+' MB)','ok');
+    setPct(100,'Done');$('ring').className='ring stop';
+    $('doneName').textContent=name+' v'+ver;
+    $('doneIcon').innerHTML=iconData?'<img alt="" src="'+iconData+'">':'<svg width="56" height="56" viewBox="0 0 24 24" fill="#a9a6b3"><path d="M4 4h16v16H4zm3 12h10l-3.2-4.3-2.3 3-1.5-2z"/></svg>';
+    $('dlBtn').href=apk.browser_download_url;lastLink=apk.browser_download_url;
+    await wait(700);check();go('s-done');
+  }catch(e){
+    if(e instanceof Stop)return;
+    $('ring').className='ring fail';$('status').textContent='Something went wrong';
+    log('✗ [FAILED] '+(e.message||e),'bad');
+  }
+}
+$('copyBtn').onclick=async()=>{try{await navigator.clipboard.writeText(lastLink);$('copyBtn').textContent='Copied. Paste it in Chrome'}catch(e){window.prompt('Copy this link and open it in Chrome:',lastLink)}};
+$('againBtn').onclick=()=>{htmlText='';iconB64='';iconData='';$('appName').value='';$('pkgName').value='';$('verName').value='1.0';$('htmlFile').value='';$('iconFile').value='';
+  $('htmlName').textContent='No file selected';$('htmlName').classList.remove('ok');
+  $('iconBox').innerHTML='<svg width="44" height="44" viewBox="0 0 24 24" fill="#a9a6b3"><path d="M4 4h16v16H4zm3 12h10l-3.2-4.3-2.3 3-1.5-2z"/></svg>';go('s-home')};
+</script>
+</body>
+</html>
