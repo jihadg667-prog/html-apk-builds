@@ -1,0 +1,136 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "App name"
+        required: true
+        default: "My Game"
+      html_file:
+        description: "HTML file in this repo (e.g. index.html)"
+        required: true
+        default: "index.html"
+      icon_file:
+        description: "Icon image in this repo (e.g. icon.png). Leave blank for the default icon"
+        required: false
+        default: ""
+      package_name:
+        description: "Package name (e.g. com.mycompany.mygame). Leave blank to generate one"
+        required: false
+        default: ""
+      version_name:
+        description: "Version (e.g. 1.0 or 1.2.3)"
+        required: true
+        default: "1.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      APP_NAME: ${{ inputs.app_name }}
+      HTML_FILE: ${{ inputs.html_file }}
+      ICON_FILE: ${{ inputs.icon_file }}
+      PACKAGE_NAME: ${{ inputs.package_name }}
+      VERSION_NAME: ${{ inputs.version_name }}
+    steps:
+      - name: Get the repo files
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Check the files
+        run: |
+          if [ ! -f "$HTML_FILE" ]; then
+            echo "::error::HTML file not found: $HTML_FILE. Check the file name and upload it to the repo."
+            exit 1
+          fi
+          if [ -n "$ICON_FILE" ] && [ ! -f "$ICON_FILE" ]; then
+            echo "::error::Icon file not found: $ICON_FILE. Check the file name and upload it to the repo."
+            exit 1
+          fi
+          if ! echo "$VERSION_NAME" | grep -Eq '^[0-9]+(\.[0-9]+){0,2}$'; then
+            echo "::error::Version must look like 1.0 or 1.2.3 (numbers and dots only)."
+            exit 1
+          fi
+          if [ -n "$PACKAGE_NAME" ] && ! echo "$PACKAGE_NAME" | grep -Eq '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'; then
+            echo "::error::Package name must look like com.mycompany.mygame (lowercase letters, numbers, underscores; at least two parts separated by dots)."
+            exit 1
+          fi
+
+      - name: Create the Android project
+        run: |
+          mkdir -p app/www
+          cp "$HTML_FILE" app/www/index.html
+          cd app
+          if [ -n "$PACKAGE_NAME" ]; then
+            export APP_ID="$PACKAGE_NAME"
+          else
+            export APP_ID="com.htmlapp.app$(echo "$APP_NAME" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9')"
+          fi
+          echo "Package name: $APP_ID"
+          cat > package.json <<'EOF'
+          {
+            "name": "htmlapp",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/core": "^6.2.0",
+              "@capacitor/android": "^6.2.0"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "^6.2.0"
+            }
+          }
+          EOF
+          node -e "require('fs').writeFileSync('capacitor.config.json', JSON.stringify({appId: process.env.APP_ID, appName: process.env.APP_NAME, webDir: 'www'}, null, 2))"
+          npm install
+          npx cap add android
+          CODE=$(echo "$VERSION_NAME" | awk -F. '{print ($1+0)*10000+($2+0)*100+($3+0)}')
+          if [ "$CODE" -lt 1 ]; then CODE=1; fi
+          sed -i "s/versionCode [0-9]*/versionCode $CODE/; s/versionName \".*\"/versionName \"$VERSION_NAME\"/" android/app/build.gradle
+          grep -E "versionCode|versionName|applicationId" android/app/build.gradle
+          npx cap sync android
+
+      - name: Apply the icon
+        if: ${{ inputs.icon_file != '' }}
+        run: |
+          RES=app/android/app/src/main/res
+          CONVERT=$(command -v magick || command -v convert)
+          rm -rf "$RES/mipmap-anydpi-v26"
+          for pair in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            d=${pair%%:*}
+            s=${pair##*:}
+            for n in ic_launcher ic_launcher_round ic_launcher_foreground; do
+              "$CONVERT" "$ICON_FILE" -resize "${s}x${s}^" -gravity center -extent "${s}x${s}" "$RES/mipmap-$d/$n.png"
+            done
+          done
+
+      - name: Build the APK
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Name the APK
+        run: cp app/android/app/build/outputs/apk/debug/app-debug.apk "app-${{ github.run_number }}.apk"
+
+      - name: Publish the APK for download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "${{ inputs.app_name }} v${{ inputs.version_name }} (build ${{ github.run_number }})"
+          body: "Download the .apk file below and install it on your Android phone."
+          files: app-${{ github.run_number }}.apk
